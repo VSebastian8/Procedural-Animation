@@ -22,16 +22,22 @@ enum MyAppMessage {
 
 struct MyApp {
     time_units: u32,
+    fps: u32,
     canvas_state: CanvasState,
 }
 
 struct CanvasState {
     position: Vector,
+    speed: f32,
+    radius: f32,
 }
 
 impl CanvasState {
     pub fn update_state(&mut self){
-        self.position.x += 15.0;
+        self.position.x += self.speed;
+        if self.position.x > 500.0 || self.position.x < -500.0 {
+            self.speed *= -1.0;
+        }
     }
 }
 
@@ -47,13 +53,16 @@ impl<Message> Program<Message> for CanvasState {
         _cursor: mouse::Cursor,
     ) -> Vec<Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
+        use rand::Rng;
 
+        let mut rng = rand::thread_rng();
         // Drawing the background
         frame.fill_rectangle(Point::ORIGIN, bounds.size(), Color::from_rgb8(2, 2, 32));
+        let y_vector = Vector::new(0.0, rng.gen_range(-5.0..5.0));
 
         // Drawing a circle of radius 250 at it's (x, y) position
         frame.fill(
-            &Path::circle(frame.center() + self.position, 250.0),
+            &Path::circle(frame.center() + self.position + y_vector, self.radius),
             Color::from_rgb8(0, 179, 134),
         );
 
@@ -70,8 +79,13 @@ impl Application for MyApp {
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         (Self {
             time_units: 0, 
+            fps: 30,
             canvas_state: CanvasState {
-                position: [0.0, 0.0].into()}, }, 
+                position: [0.0, 0.0].into(),
+                speed: 15.0,
+                radius: 75.0,
+                },
+            },
         Command::none())
     }
 
@@ -83,7 +97,9 @@ impl Application for MyApp {
         match message {
             MyAppMessage::Update => {
                 self.time_units += 1;
-                println!("{}", self.time_units);
+                if self.time_units % self.fps == 0 {
+                    println!("{}", self.time_units);
+                }
                 self.canvas_state.update_state();
             }
         }
@@ -95,6 +111,6 @@ impl Application for MyApp {
     }
 
     fn subscription(&self) -> iced::Subscription<Self::Message> {
-        time::every(Duration::from_secs(1)).map(|_| MyAppMessage::Update)
+        time::every(Duration::from_millis((1000 / self.fps) as u64)).map(|_| MyAppMessage::Update)
     }
 }

@@ -1,22 +1,19 @@
+use crate::screen::*;
 use iced::{
     executor,
-    time::{
-        self, Duration
-    },
-    widget:: Canvas,
-    Application, Command, Length
+    time::{self, Duration},
+    widget::Canvas,
+    Application, Command, Length,
 };
-use crate::screen::*;
 
 #[derive(Debug, Clone)]
 pub enum MyAppMessage {
     Update,
 }
-
 pub struct MyApp {
     time_units: u32,
     fps: u32,
-    canvas_state: Screen,
+    screen: Screen,
 }
 
 impl Application for MyApp {
@@ -26,39 +23,39 @@ impl Application for MyApp {
     type Flags = ();
 
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
-        (Self {
-            time_units: 0, 
-            fps: 30,
-            canvas_state: Screen {
-                position: [0.0, 0.0].into(),
-                speed: 15.0,
-                radius: 75.0,
-                },
+        (
+            Self {
+                time_units: 0,
+                fps: 30,
+                screen: Screen::new(),
             },
-        Command::none())
+            Command::none(),
+        )
     }
 
     fn title(&self) -> String {
         String::from("Procedural Animation")
     }
 
+    // Call the update screen function each frame
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
         match message {
             MyAppMessage::Update => {
                 self.time_units += 1;
-                if self.time_units % self.fps == 0 {
-                    println!("{}", self.time_units);
-                }
-                self.canvas_state.update_state();
+                self.screen.update();
             }
         }
         Command::none()
     }
 
     fn view(&self) -> iced::Element<Self::Message> {
-        Canvas::new(&self.canvas_state).width(Length::Fill).height(Length::Fill).into()
+        Canvas::new(&self.screen)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
     }
 
+    // Frame every 1/fps seconds
     fn subscription(&self) -> iced::Subscription<Self::Message> {
         time::every(Duration::from_millis((1000 / self.fps) as u64)).map(|_| MyAppMessage::Update)
     }

@@ -1,10 +1,11 @@
 use iced::{
     Application, // Also import implemented Traits
-    Settings,
     Result,
+    Settings,
 };
-mod screen;
 mod app;
+mod circle;
+mod screen;
 use crate::app::*;
 
 fn main() -> Result {

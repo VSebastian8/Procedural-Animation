@@ -4,6 +4,7 @@ use iced::{
     Settings,
 };
 mod app;
+mod chain;
 mod circle;
 mod screen;
 use crate::app::*;

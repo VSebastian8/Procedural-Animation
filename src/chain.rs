@@ -1,30 +1,84 @@
-use std::f32::consts::PI;
-
 use crate::circle::*;
 use iced::Vector;
+use std::f32::consts::PI;
 
 // Using angles in radians: 360 degrees == 2PI radians
 pub struct Chain {
     pub circles: Vec<Circle>,
-    pub speed: f32,
-    max_speed: f32,
-    min_speed: f32,
     pub destination: Vector,
     pub vision_angle: f32,
     rotation_speed: f32,
+    pub speed: f32,
+    min_speed: f32,
+    max_speed: f32,
     locked: bool,
 }
 
-impl Default for Chain {
-    fn default() -> Self {
-        Self {
-            circles: vec![Circle::default()],
-            speed: 4.0,
-            max_speed: 8.0,
-            min_speed: 3.0,
-            destination: [0.0, 0.0].into(),
-            vision_angle: PI / 6.0,
-            rotation_speed: PI / 100.0,
+// Builder pattern for chain struct
+pub struct ChainBuilder {
+    circles: Vec<Circle>,
+    destination: Option<Vector>,
+    vision_angle: Option<f32>,
+    min_speed: Option<f32>,
+    max_speed: Option<f32>,
+}
+
+#[allow(dead_code)]
+impl ChainBuilder {
+    // Function that sets the radius for each circle
+    pub fn circles_radii(&mut self, radius_array: Vec<f32>) -> &mut Self {
+        self.circles = radius_array
+            .into_iter()
+            .map(|r| Circle::default().set_radius(r))
+            .collect();
+        self
+    }
+
+    // Set the circle positions according to a function given as argument
+    // The function takes a circle's index and radius and returns an (x, y) Option Tuple
+    pub fn circles_positions(
+        &mut self,
+        get_position: impl Fn(usize, f32) -> (Option<f32>, Option<f32>),
+    ) -> &mut Self {
+        self.circles = self
+            .circles
+            .clone()
+            .into_iter()
+            .enumerate()
+            .map(|(i, c)| c.set_position(get_position(i, c.radius)))
+            .collect();
+        self
+    }
+
+    // Set the target destination
+    pub fn destination(&mut self, destination: Vector) -> &mut Self {
+        self.destination = Some(destination);
+        self
+    }
+
+    // Set the vision angle for turning
+    pub fn vision_angle(&mut self, vision_angle: f32) -> &mut Self {
+        self.vision_angle = Some(vision_angle);
+        self
+    }
+
+    // Set the min and max speeds
+    pub fn speed_bounds(&mut self, min_speed: f32, max_speed: f32) -> &mut Self {
+        self.min_speed = Some(min_speed);
+        self.max_speed = Some(max_speed);
+        self
+    }
+
+    // Return the built chain
+    pub fn build(&mut self) -> Chain {
+        Chain {
+            circles: self.circles.clone(),
+            destination: self.destination.unwrap_or(Vector::new(0.0, 0.0)).clone(),
+            vision_angle: self.vision_angle.unwrap_or(PI / 6.0),
+            rotation_speed: self.vision_angle.unwrap_or(PI / 6.0) / 25.0,
+            speed: self.min_speed.unwrap_or(3.0),
+            min_speed: self.min_speed.unwrap_or(3.0),
+            max_speed: self.max_speed.unwrap_or(7.0),
             locked: false,
         }
     }
@@ -32,66 +86,18 @@ impl Default for Chain {
 
 enum Orientation {
     LEFT,
-    RIGHT,
     CENTER,
+    RIGHT,
 }
 
 impl Chain {
-    // Function that sets the radius for each circle
-    pub fn set_circles_radii(self, radius_array: Vec<f32>) -> Self {
-        Self {
-            circles: radius_array
-                .into_iter()
-                .map(|r| Circle::default().set_radius(r))
-                .collect(),
-            speed: self.speed,
-            max_speed: self.max_speed,
-            min_speed: self.min_speed,
-            destination: self.destination,
-            vision_angle: self.vision_angle,
-            rotation_speed: self.rotation_speed,
-            locked: self.locked,
-        }
-    }
-
-    // Function that randomizez the position of each circle
-    pub fn randomize_circles_positions(self) -> Self {
-        Self {
-            circles: self
-                .circles
-                .into_iter()
-                .map(|c| c.randomize_position())
-                .collect(),
-            speed: self.speed,
-            max_speed: self.max_speed,
-            min_speed: self.min_speed,
-            destination: self.destination,
-            vision_angle: self.vision_angle,
-            rotation_speed: self.rotation_speed,
-            locked: self.locked,
-        }
-    }
-
-    // Set the circle positions according to a function given as argument
-    // The function takes a circle's index and radius and returns an (x, y) Option Tuple
-    pub fn set_circles_positions(
-        self,
-        get_position: impl Fn(usize, f32) -> (Option<f32>, Option<f32>),
-    ) -> Self {
-        Self {
-            circles: self
-                .circles
-                .into_iter()
-                .enumerate()
-                .map(|(i, c)| c.set_position(get_position(i, c.radius)))
-                .collect(),
-            speed: self.speed,
-            max_speed: self.max_speed,
-            min_speed: self.min_speed,
-            destination: self.destination,
-            vision_angle: self.vision_angle,
-            rotation_speed: self.rotation_speed,
-            locked: self.locked,
+    pub fn new() -> ChainBuilder {
+        ChainBuilder {
+            circles: vec![Circle::default()],
+            destination: None,
+            vision_angle: None,
+            min_speed: None,
+            max_speed: None,
         }
     }
 
@@ -106,8 +112,8 @@ impl Chain {
             self.circles[i].normalize_direction();
 
             // Set the center of the circle on the circumference of the  previous circle
-            let distance = self.circles[i - 1].radius_scale;
-            self.circles[i].bound_to_target(target, distance)
+            let distance = -self.circles[i - 1].radius;
+            self.circles[i].bound_to_target(target, distance);
         }
     }
 
@@ -146,8 +152,7 @@ impl Chain {
 
     // Rotate the vector v by a degrees
     fn rotate_vector(v: Vector, a: f32) -> Vector {
-        // println!("{}", a);
-        [a.cos() * v.x - a.sin() * v.y, a.sin() * v.x + a.cos() * v.y].into()
+        Vector::new(a.cos() * v.x - a.sin() * v.y, a.sin() * v.x + a.cos() * v.y)
     }
 
     // Move the first circle in the direction it's pointing

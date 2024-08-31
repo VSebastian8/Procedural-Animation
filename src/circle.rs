@@ -1,7 +1,6 @@
-use iced::{widget::canvas::Path, Point, Transformation, Vector};
+use iced::{widget::canvas::Path, Point, Vector};
 pub struct Circle {
     pub radius: f32,
-    pub radius_scale: Transformation,
     pub position: Vector,
     pub direction: Vector,
     pub show_center: bool,
@@ -11,9 +10,8 @@ impl Default for Circle {
     fn default() -> Self {
         Self {
             radius: 25.0,
-            radius_scale: Transformation::scale(-25.0),
-            position: [0.0, 0.0].into(),
-            direction: [-1.0, 0.0].into(),
+            position: Vector::new(0.0, 0.0),
+            direction: Vector::new(-1.0, 0.0),
             show_center: true,
         }
     }
@@ -23,7 +21,6 @@ impl Clone for Circle {
     fn clone(&self) -> Self {
         Self {
             radius: self.radius,
-            radius_scale: Transformation::scale(-1.0 * self.radius),
             position: self.position.clone(),
             direction: self.direction.clone(),
             show_center: self.show_center,
@@ -36,7 +33,6 @@ impl Circle {
     pub fn set_radius(&self, radius: f32) -> Self {
         let mut circle = self.clone();
         circle.radius = radius;
-        circle.radius_scale = Transformation::scale(-1.0 * radius);
         circle
     }
 
@@ -54,18 +50,8 @@ impl Circle {
         circle
     }
 
-    // Function for randomizing the circle's center position
-    pub fn randomize_position(&self) -> Self {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
-        let mut randomized_circle = self.clone();
-        randomized_circle.position =
-            [rng.gen_range(-400.0..400.0), rng.gen_range(-300.0..300.0)].into();
-        randomized_circle
-    }
-
     // Set the position of the circle at {distance} from {target}
-    pub fn bound_to_target(&mut self, target: Vector, distance: Transformation) {
+    pub fn bound_to_target(&mut self, target: Vector, distance: f32) {
         self.position = target + self.direction * distance;
     }
 
@@ -77,9 +63,7 @@ impl Circle {
     // Normalize the direction vector
     pub fn normalize_direction(&mut self) {
         self.direction = self.direction
-            * Transformation::scale(
-                1.0 / (self.direction.x.powf(2.0) + self.direction.y.powf(2.0)).sqrt(),
-            );
+            * (1.0 / (self.direction.x.powf(2.0) + self.direction.y.powf(2.0)).sqrt());
     }
 
     // Function returning a path of the circle

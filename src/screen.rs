@@ -12,21 +12,25 @@ pub struct Screen {
 
 impl Screen {
     pub fn new() -> Self {
+        let mut chain = Chain::default()
+            .set_circles_radii(
+                [
+                    30.0, 48.0, 80.0, 55.5, 40.0, 30.5, 20.0, 20.0, 20.0, 20.0, 25.5,
+                ]
+                .into(),
+            )
+            .randomize_circles_positions()
+            .set_circles_positions(|i, r| (Some(i as f32 * r * 3.0 + 100.0), None));
+        chain.update_positions();
         Self {
             cache: Cache::new(),
-            chain: Chain::new(8),
+            chain,
         }
     }
 
     pub fn update(&mut self) {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
-
-        for circle in &mut self.chain.circles {
-            let offset: f32 = rng.gen_range(-5.0..5.0);
-            circle.position.y += offset * (if rng.gen::<bool>() { -1.0 } else { 1.0 });
-            circle.position.x += offset * (if rng.gen::<bool>() { -1.0 } else { 1.0 });
-        }
+        // Move the first circle and readjust all the rest
+        self.chain.move_chain();
 
         // // Clear the cache to redraw the canvas
         self.cache.clear();

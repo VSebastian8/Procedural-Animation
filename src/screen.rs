@@ -1,7 +1,7 @@
 use crate::chain::*;
 use iced::{
     mouse,
-    widget::canvas::{Cache, Geometry, Program, Stroke},
+    widget::canvas::{Cache, Geometry, Path, Program, Stroke},
     Color, Point, Rectangle, Renderer, Theme,
 };
 
@@ -22,6 +22,7 @@ impl Screen {
             .randomize_circles_positions()
             .set_circles_positions(|i, r| (Some(i as f32 * r * 3.0 + 100.0), None));
         chain.update_positions();
+        chain.set_destination([-250.0, 0.0].into());
         Self {
             cache: Cache::new(),
             chain,
@@ -29,6 +30,15 @@ impl Screen {
     }
 
     pub fn update(&mut self) {
+        // Every now and then, set the chain destination to a random point
+        if self.chain.reached_destination() {
+            use rand::Rng;
+            let mut rng = rand::thread_rng();
+            self.chain.set_destination(
+                [rng.gen_range(-400.0..400.0), rng.gen_range(-300.0..300.0)].into(),
+            )
+        }
+
         // Move the first circle and readjust all the rest
         self.chain.move_chain();
 
@@ -68,6 +78,10 @@ impl<Message> Program<Message> for Screen {
                     frame.fill(&circle.center_path(frame.center()), Color::WHITE);
                 }
             }
+            frame.fill(
+                &Path::circle(frame.center() + self.chain.destination, 5.0),
+                Color::from_rgb8(190, 0, 45),
+            );
         });
 
         vec![geometry]

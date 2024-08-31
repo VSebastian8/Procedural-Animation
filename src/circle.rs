@@ -1,6 +1,7 @@
 use iced::{widget::canvas::Path, Point, Vector};
 pub struct Circle {
     pub radius: f32,
+    pub offset: f32,
     pub position: Vector,
     pub direction: Vector,
     pub show_center: bool,
@@ -10,9 +11,10 @@ impl Default for Circle {
     fn default() -> Self {
         Self {
             radius: 25.0,
+            offset: 0.0,
             position: Vector::new(0.0, 0.0),
             direction: Vector::new(-1.0, 0.0),
-            show_center: true,
+            show_center: false,
         }
     }
 }
@@ -21,6 +23,7 @@ impl Clone for Circle {
     fn clone(&self) -> Self {
         Self {
             radius: self.radius,
+            offset: self.offset,
             position: self.position.clone(),
             direction: self.direction.clone(),
             show_center: self.show_center,
@@ -28,12 +31,18 @@ impl Clone for Circle {
     }
 }
 
+#[allow(dead_code)]
 impl Circle {
     // Function for setting the radius of a circle
-    pub fn set_radius(&self, radius: f32) -> Self {
-        let mut circle = self.clone();
-        circle.radius = radius;
-        circle
+    pub fn set_radius(&mut self, radius: f32) -> &mut Self {
+        self.radius = radius;
+        self
+    }
+
+    // Function for setting the offset of the center from the frontier of the previous circle
+    pub fn set_offset(&mut self, offset: f32) -> &mut Self {
+        self.offset = offset;
+        self
     }
 
     // Function for setting the position, if x or y is None it doesn't change them
@@ -52,7 +61,7 @@ impl Circle {
 
     // Set the position of the circle at {distance} from {target}
     pub fn bound_to_target(&mut self, target: Vector, distance: f32) {
-        self.position = target + self.direction * distance;
+        self.position = target + self.direction * (distance + self.offset) * (-1.0);
     }
 
     // Point the direction vector towards a new target

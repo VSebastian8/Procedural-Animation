@@ -42,7 +42,7 @@ impl Application for MyApp {
         match message {
             MyAppMessage::Update => {
                 self.time_units += 1;
-                self.screen.update();
+                self.screen.update(self.time_units);
             }
         }
         Command::none()

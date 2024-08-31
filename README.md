@@ -9,4 +9,9 @@ Personal project for learning Rust, using the Iced GUI library
 
 ### _Chain structure_
 
-![chain creature gif](/assets/chain.gif "Chain Creature Following a Target")
+![chain creature gif](/assets/chain_structure.gif "Chain Creature Following a Target")
+[Tag: v0.1](https://github.com/VSebastian8/Procedural-Animation/releases/tag/v0.1)
+
+## _Creature contour and eyes_
+
+![chain bubble gif](/assets/bubble-chain.gif "Bubble Contour Circle")

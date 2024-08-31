@@ -1,6 +1,6 @@
 use crate::circle::*;
-use iced::Vector;
-use std::f32::consts::PI;
+use iced::{widget::canvas::Path, Point, Vector};
+use std::{cmp::min, f32::consts::PI};
 
 // Using angles in radians: 360 degrees == 2PI radians
 pub struct Chain {
@@ -29,8 +29,16 @@ impl ChainBuilder {
     pub fn circles_radii(&mut self, radius_array: Vec<f32>) -> &mut Self {
         self.circles = radius_array
             .into_iter()
-            .map(|r| Circle::default().set_radius(r))
+            .map(|r| Circle::default().set_radius(r).clone())
             .collect();
+        self
+    }
+
+    // Function that sets the offset from the frontier for each circle
+    pub fn circles_offsets(&mut self, offset_array: Vec<f32>) -> &mut Self {
+        for i in 0..min(offset_array.len(), self.circles.len()) {
+            self.circles[i].offset = offset_array[i];
+        }
         self
     }
 
@@ -112,7 +120,7 @@ impl Chain {
             self.circles[i].normalize_direction();
 
             // Set the center of the circle on the circumference of the  previous circle
-            let distance = -self.circles[i - 1].radius;
+            let distance = self.circles[i - 1].radius;
             self.circles[i].bound_to_target(target, distance);
         }
     }
@@ -155,52 +163,125 @@ impl Chain {
         Vector::new(a.cos() * v.x - a.sin() * v.y, a.sin() * v.x + a.cos() * v.y)
     }
 
-    // Move the first circle in the direction it's pointing
-    // Update the rest of the circles to follow
-    pub fn move_chain(&mut self) {
-        if !Self::reached_destination(&self) {
-            if self.locked
-                || Self::angle_2_vectors(
-                    self.circles[0].direction,
-                    self.destination - self.circles[0].position,
-                ) < self.vision_angle
-            {
-                self.circles[0].set_target(self.destination);
-                self.locked = true;
-                self.rotation_speed = self.vision_angle / 25.0;
-                self.speed = if self.speed >= self.max_speed {
-                    self.max_speed
-                } else {
-                    self.speed + 0.05
-                };
-            } else {
-                self.rotation_speed += 0.0005;
-                match Self::orientation_test(
-                    self.circles[0].position,
-                    self.circles[0].position + self.circles[0].direction * 100.0,
-                    self.destination,
-                ) {
-                    Orientation::LEFT => {
-                        self.circles[0].direction =
-                            Self::rotate_vector(self.circles[0].direction, -self.rotation_speed);
-                    }
-                    Orientation::RIGHT | Orientation::CENTER => {
-                        self.circles[0].direction =
-                            Self::rotate_vector(self.circles[0].direction, self.rotation_speed);
-                    }
-                }
-                self.speed = if self.speed <= self.min_speed {
-                    self.min_speed
-                } else {
-                    self.speed - 0.05
-                };
-            }
+    // Function for heading straight for the point once the target is in the field of vision
+    fn go_straight(&mut self) {
+        self.circles[0].set_target(self.destination);
+        self.locked = true;
+        self.rotation_speed = self.vision_angle / 25.0;
+        self.speed = if self.speed >= self.max_speed {
+            self.max_speed
+        } else {
+            self.speed + 0.05
+        };
+        self.circles[0].set_target(self.destination);
+        self.locked = true;
+        self.rotation_speed = self.vision_angle / 25.0;
+        self.speed = if self.speed >= self.max_speed {
+            self.max_speed
+        } else {
+            self.speed + 0.05
+        };
+    }
 
-            self.circles[0].normalize_direction();
-            self.circles[0].position =
-                self.circles[0].position + self.circles[0].direction * self.speed;
+    // Turn at {rotation_speed} when target is not in the field of vision
+    fn turn(&mut self) {
+        self.rotation_speed += 0.0002;
+        match Self::orientation_test(
+            self.circles[0].position,
+            self.circles[0].position + self.circles[0].direction * 100.0,
+            self.destination,
+        ) {
+            Orientation::LEFT => {
+                self.circles[0].direction =
+                    Self::rotate_vector(self.circles[0].direction, -self.rotation_speed);
+            }
+            Orientation::RIGHT | Orientation::CENTER => {
+                self.circles[0].direction =
+                    Self::rotate_vector(self.circles[0].direction, self.rotation_speed);
+            }
+        }
+        self.speed = if self.speed <= self.min_speed {
+            self.min_speed
+        } else {
+            self.speed - 0.05
+        };
+    }
+
+    // Function for changing the position of the first circle
+    fn move_head(&mut self) {
+        // Modify the first circle's direction depending on the target's direction
+        if self.locked
+            || Self::angle_2_vectors(
+                self.circles[0].direction,
+                self.destination - self.circles[0].position,
+            ) < self.vision_angle
+        {
+            Self::go_straight(self);
+        } else {
+            Self::turn(self);
         }
 
+        // Move the first circle in the direction it's pointing
+        self.circles[0].normalize_direction();
+        self.circles[0].position =
+            self.circles[0].position + self.circles[0].direction * self.speed;
+    }
+
+    // Update the rest of the circles to follow the first one
+    pub fn move_chain(&mut self) {
+        if !Self::reached_destination(&self) {
+            Self::move_head(self);
+        }
         self.update_positions();
+    }
+
+    pub fn grow_tail(&mut self) {
+        let size = self.circles.len() - 1;
+        self.circles[size].radius += 0.4;
+        self.circles[size - 1].radius += 0.2;
+    }
+
+    pub fn shrink_tail(&mut self) {
+        let size = self.circles.len() - 1;
+        self.circles[size].radius -= 0.4;
+        self.circles[size - 1].radius -= 0.2;
+    }
+
+    // Function to return a path of the Chain
+    pub fn path(&self, frame_center: Point) -> Path {
+        Path::new(|builder| {
+            for i in 0..self.circles.len() {
+                // builder.circle(&circle.path(frame.center()),
+                builder.circle(
+                    frame_center + self.circles[i].position,
+                    self.circles[i].radius,
+                );
+            }
+
+            builder.close();
+        })
+    }
+
+    // Function for drawing the creature's eyes
+    pub fn eyes_path(&self, frame_center: Point) -> Path {
+        Path::new(|builder| {
+            builder.circle(
+                frame_center
+                    + self.circles[0].position
+                    + Self::rotate_vector(self.circles[0].direction, -PI / 4.0)
+                        * self.circles[0].radius
+                        * 0.75,
+                5.0,
+            );
+            builder.circle(
+                frame_center
+                    + self.circles[0].position
+                    + Self::rotate_vector(self.circles[0].direction, PI / 4.0)
+                        * self.circles[0].radius
+                        * 0.75,
+                5.0,
+            );
+            builder.close();
+        })
     }
 }

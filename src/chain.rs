@@ -92,7 +92,7 @@ impl ChainBuilder {
     }
 }
 
-enum Orientation {
+pub enum Orientation {
     LEFT,
     CENTER,
     RIGHT,
@@ -109,19 +109,27 @@ impl Chain {
         }
     }
 
-    // Snap each circle to the previous circle frontier
-    pub fn update_positions(&mut self) {
-        for i in 1..self.circles.len() {
-            // Update direction towards next circle
-            let target = self.circles[i - 1].position;
-            self.circles[i].set_target(target);
+    // Function to snap circle i to the frontier of circle j
+    pub fn bind_circle(&mut self, i: usize, j: usize) {
+        // Update direction towards next circle
+        let target = self.circles[j].position;
+        self.circles[i].set_target(target);
 
-            // Normalize the distance vector
-            self.circles[i].normalize_direction();
+        // Normalize the distance vector
+        self.circles[i].normalize_direction();
 
-            // Set the center of the circle on the circumference of the  previous circle
-            let distance = self.circles[i - 1].radius;
-            self.circles[i].bound_to_target(target, distance);
+        // Set the center of the circle on the circumference of the  previous circle
+        let distance = self.circles[j].radius;
+        self.circles[i].bound_to_target(target, distance);
+    }
+
+    // Starting from the k circle, snap each circle in either direction
+    pub fn update_positions(&mut self, k: usize) {
+        for i in (0..k).rev() {
+            self.bind_circle(i, i + 1);
+        }
+        for i in (k + 1)..self.circles.len() {
+            self.bind_circle(i, i - 1);
         }
     }
 
@@ -135,19 +143,19 @@ impl Chain {
     }
 
     // Calculate the length of a 2D vector
-    fn vector_length(v: Vector) -> f32 {
+    pub fn vector_length(v: Vector) -> f32 {
         v.x.powf(2.0) + v.y.powf(2.0)
     }
 
     // Calculate the angle between 2 vectors
-    fn angle_2_vectors(a: Vector, b: Vector) -> f32 {
+    pub fn angle_2_vectors(a: Vector, b: Vector) -> f32 {
         ((a.x * b.x + a.y * b.y)
             / ((a.x.powf(2.0) + a.y.powf(2.0)).sqrt() * (b.x.powf(2.0) + b.y.powf(2.0)).sqrt()))
         .acos()
     }
 
     // Determine wether c is Left, Right or Colinear with the vector from a to b
-    fn orientation_test(a: Vector, b: Vector, c: Vector) -> Orientation {
+    pub fn orientation_test(a: Vector, b: Vector, c: Vector) -> Orientation {
         let det = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
         if det == 0.0 {
             Orientation::CENTER
@@ -159,12 +167,12 @@ impl Chain {
     }
 
     // Rotate the vector v by a degrees
-    fn rotate_vector(v: Vector, a: f32) -> Vector {
+    pub fn rotate_vector(v: Vector, a: f32) -> Vector {
         Vector::new(a.cos() * v.x - a.sin() * v.y, a.sin() * v.x + a.cos() * v.y)
     }
 
     // Function for heading straight for the point once the target is in the field of vision
-    fn go_straight(&mut self) {
+    pub fn go_straight(&mut self) {
         self.circles[0].set_target(self.destination);
         self.locked = true;
         self.rotation_speed = self.vision_angle / 25.0;
@@ -184,7 +192,7 @@ impl Chain {
     }
 
     // Turn at {rotation_speed} when target is not in the field of vision
-    fn turn(&mut self) {
+    pub fn turn(&mut self) {
         self.rotation_speed += 0.0002;
         match Self::orientation_test(
             self.circles[0].position,
@@ -208,7 +216,7 @@ impl Chain {
     }
 
     // Function for changing the position of the first circle
-    fn move_head(&mut self) {
+    pub fn move_head(&mut self) {
         // Modify the first circle's direction depending on the target's direction
         if self.locked
             || Self::angle_2_vectors(
@@ -232,7 +240,7 @@ impl Chain {
         if !Self::reached_destination(&self) {
             Self::move_head(self);
         }
-        self.update_positions();
+        self.update_positions(0);
     }
 
     pub fn grow_tail(&mut self) {
@@ -258,29 +266,6 @@ impl Chain {
                 );
             }
 
-            builder.close();
-        })
-    }
-
-    // Function for drawing the creature's eyes
-    pub fn eyes_path(&self, frame_center: Point) -> Path {
-        Path::new(|builder| {
-            builder.circle(
-                frame_center
-                    + self.circles[0].position
-                    + Self::rotate_vector(self.circles[0].direction, -PI / 4.0)
-                        * self.circles[0].radius
-                        * 0.75,
-                5.0,
-            );
-            builder.circle(
-                frame_center
-                    + self.circles[0].position
-                    + Self::rotate_vector(self.circles[0].direction, PI / 4.0)
-                        * self.circles[0].radius
-                        * 0.75,
-                5.0,
-            );
             builder.close();
         })
     }

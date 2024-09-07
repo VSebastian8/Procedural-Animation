@@ -7,6 +7,7 @@ mod app;
 mod chain;
 mod circle;
 mod screen;
+mod snake;
 use crate::app::*;
 
 fn main() -> Result {

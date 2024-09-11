@@ -19,8 +19,8 @@ impl Screen {
         }
     }
 
-    pub fn update(&mut self, t: u32) {
-        self.snake.update((t / 20) % 3);
+    pub fn update(&mut self) {
+        self.snake.update();
 
         // // Clear the cache to redraw the canvas
         self.cache.clear();

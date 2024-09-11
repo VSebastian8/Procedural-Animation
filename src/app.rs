@@ -11,7 +11,6 @@ pub enum MyAppMessage {
     Update,
 }
 pub struct MyApp {
-    time_units: u32,
     fps: u32,
     screen: Screen,
 }
@@ -25,7 +24,6 @@ impl Application for MyApp {
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         (
             Self {
-                time_units: 0,
                 fps: 30,
                 screen: Screen::new(),
             },
@@ -41,8 +39,7 @@ impl Application for MyApp {
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
         match message {
             MyAppMessage::Update => {
-                self.time_units += 1;
-                self.screen.update(self.time_units);
+                self.screen.update();
             }
         }
         Command::none()

@@ -16,33 +16,36 @@ pub struct Snake {
     action: FsmAction,
     tail_size: FsmTailSize,
     tail_shake: FsmTailShake,
+    turn_angle: f32,
 }
 
 // Enum for the actions of the move automaton
 #[derive(Debug)]
 enum FsmAction {
     GoStraight,
+    Forward(u32),
     TurnLeft,
     TurnRight,
     Target,
     Look,
     LookLeft,
     LookRight,
+    Spiral,
     Orient,
     Reach,
 }
 
 // Enum for pulsating the tail, the integer represents how many frames we've been in this action
 enum FsmTailSize {
-    Normal(i32),
-    Shrink(i32),
-    Grow(i32),
+    Normal(u32),
+    Shrink(u32),
+    Grow(u32),
 }
 
 // Enum for moving the tail, the integer represents how many frames we've been in this action
 enum FsmTailShake {
-    Left(i32),
-    Right(i32),
+    Left(u32),
+    Right(u32),
 }
 
 // If the action is temporary we move to another action in the same frame
@@ -51,12 +54,14 @@ impl FsmAction {
     pub fn is_temporary(&self) -> bool {
         match self {
             Self::GoStraight => false,
+            Self::Forward(_) => false,
             Self::TurnLeft => false,
             Self::TurnRight => false,
             Self::Target => true,
             Self::Look => true,
             Self::LookLeft => true,
             Self::LookRight => true,
+            Self::Spiral => true,
             Self::Orient => true,
             Self::Reach => true,
         }
@@ -88,8 +93,9 @@ impl Snake {
             max_speed: 7.0,
             color: Color::from_rgb8(168, 58, 50),
             action: FsmAction::Reach,
-            tail_size: FsmTailSize::Normal(0),
+            tail_size: FsmTailSize::Normal(30),
             tail_shake: FsmTailShake::Left(5),
+            turn_angle: PI / 100.0,
         }
     }
 
@@ -105,7 +111,30 @@ impl Snake {
                 {
                     FsmAction::GoStraight
                 } else {
+                    FsmAction::Spiral
+                }
+            }
+            FsmAction::Spiral => {
+                // Number of vertexes for spiral regular polygon
+                let radius = self.max_speed / (2.0 * self.turn_angle.sin()) + 40.0;
+                let center_left = self.chain.circles[0].position
+                    + Chain::rotate_vector(self.chain.circles[0].direction, -PI / 2.0) * radius;
+                let center_right = self.chain.circles[0].position
+                    + Chain::rotate_vector(self.chain.circles[0].direction, PI / 2.0) * radius;
+
+                if Chain::vector_length(self.destination - center_left) < radius
+                    || Chain::vector_length(self.destination - center_right) < radius
+                {
+                    FsmAction::Forward(30)
+                } else {
                     FsmAction::Orient
+                }
+            }
+            FsmAction::Forward(i) => {
+                if i == 0 {
+                    FsmAction::Orient
+                } else {
+                    FsmAction::Forward(i - 1)
                 }
             }
             FsmAction::Orient => {
@@ -145,7 +174,7 @@ impl Snake {
             FsmAction::GoStraight => FsmAction::Reach,
             FsmAction::Reach => {
                 if Chain::vector_length(self.chain.circles[0].position - self.destination)
-                    < self.max_speed + 10.0
+                    < self.chain.circles[0].radius
                 {
                     FsmAction::Target
                 } else {
@@ -172,13 +201,16 @@ impl Snake {
             }
             FsmAction::TurnLeft => {
                 self.chain.circles[0].direction =
-                    Chain::rotate_vector(self.chain.circles[0].direction, -PI / 100.0);
+                    Chain::rotate_vector(self.chain.circles[0].direction, -self.turn_angle);
                 self.modify_speed(-0.05);
             }
             FsmAction::TurnRight => {
                 self.chain.circles[0].direction =
-                    Chain::rotate_vector(self.chain.circles[0].direction, PI / 100.0);
+                    Chain::rotate_vector(self.chain.circles[0].direction, self.turn_angle);
                 self.modify_speed(-0.05);
+            }
+            FsmAction::Forward(_) => {
+                self.modify_speed(0.05);
             }
             _ => {}
         }
@@ -202,24 +234,24 @@ impl Snake {
     pub fn tail_size_transition(&mut self) {
         self.tail_size = match self.tail_size {
             FsmTailSize::Normal(i) => {
-                if i == 30 {
-                    FsmTailSize::Grow(0)
+                if i == 0 {
+                    FsmTailSize::Grow(15)
                 } else {
-                    FsmTailSize::Normal(i + 1)
+                    FsmTailSize::Normal(i - 1)
                 }
             }
             FsmTailSize::Grow(i) => {
-                if i == 15 {
-                    FsmTailSize::Shrink(0)
+                if i == 0 {
+                    FsmTailSize::Shrink(15)
                 } else {
-                    FsmTailSize::Grow(i + 1)
+                    FsmTailSize::Grow(i - 1)
                 }
             }
             FsmTailSize::Shrink(i) => {
-                if i == 15 {
-                    FsmTailSize::Normal(0)
+                if i == 0 {
+                    FsmTailSize::Normal(30)
                 } else {
-                    FsmTailSize::Shrink(i + 1)
+                    FsmTailSize::Shrink(i - 1)
                 }
             }
         }
@@ -245,17 +277,17 @@ impl Snake {
     pub fn tail_shake_transition(&mut self) {
         self.tail_shake = match self.tail_shake {
             FsmTailShake::Left(i) => {
-                if i >= 10 {
-                    FsmTailShake::Right(0)
+                if i == 0 {
+                    FsmTailShake::Right(10)
                 } else {
-                    FsmTailShake::Left(i + 1)
+                    FsmTailShake::Left(i - 1)
                 }
             }
             FsmTailShake::Right(i) => {
-                if i >= 10 {
-                    FsmTailShake::Left(0)
+                if i == 0 {
+                    FsmTailShake::Left(10)
                 } else {
-                    FsmTailShake::Right(i + 1)
+                    FsmTailShake::Right(i - 1)
                 }
             }
         }
@@ -321,7 +353,9 @@ impl Snake {
         // Color the chain
         frame.fill(&self.chain.path(frame.center()), self.color);
 
-        frame.fill(&self.eyes_path(frame.center()), Color::WHITE)
+        frame.fill(&self.eyes_path(frame.center()), Color::WHITE);
+
+        // self.show_blind_spots(frame);
     }
 
     // Function for drawing the snake's eyes
@@ -345,5 +379,22 @@ impl Snake {
             );
             builder.close();
         })
+    }
+
+    #[allow(dead_code)]
+    pub fn show_blind_spots(&self, frame: &mut Frame) {
+        let radius = self.max_speed / (2.0 * self.turn_angle.sin()) + 40.0;
+        let center_left = self.chain.circles[0].position
+            + Chain::rotate_vector(self.chain.circles[0].direction, -PI / 2.0) * radius;
+        let center_right = self.chain.circles[0].position
+            + Chain::rotate_vector(self.chain.circles[0].direction, PI / 2.0) * radius;
+        frame.fill(
+            &Path::circle(frame.center() + center_left, radius),
+            Color::from_rgba8(255, 255, 255, 0.2),
+        );
+        frame.fill(
+            &Path::circle(frame.center() + center_right, radius),
+            Color::from_rgba8(255, 255, 255, 0.2),
+        );
     }
 }

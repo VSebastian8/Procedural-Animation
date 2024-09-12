@@ -56,6 +56,7 @@ impl ChainBuilder {
     }
 }
 
+#[derive(Debug)]
 pub enum Orientation {
     LEFT,
     CENTER,
@@ -95,7 +96,7 @@ impl Chain {
 
     // Calculate the length of a 2D vector
     pub fn vector_length(v: Vector) -> f32 {
-        v.x.powf(2.0) + v.y.powf(2.0)
+        (v.x.powf(2.0) + v.y.powf(2.0)).sqrt()
     }
 
     // Calculate the angle between 2 vectors
@@ -120,6 +121,30 @@ impl Chain {
     // Rotate the vector v by a degrees
     pub fn rotate_vector(v: Vector, a: f32) -> Vector {
         Vector::new(a.cos() * v.x - a.sin() * v.y, a.sin() * v.x + a.cos() * v.y)
+    }
+
+    #[allow(dead_code)]
+    // Function that calculates the circle passing through 3 points, returns circle center and radius
+    pub fn circle_from_three_points(a: Vector, b: Vector, c: Vector) -> (Vector, f32) {
+        let xab = a.x - b.x;
+        let xac = a.x - c.x;
+        let yab = a.y - b.y;
+        let yac = a.y - c.y;
+
+        // Square difference
+        let sqxac = a.x * a.x - c.x * c.x;
+        let sqxba = b.x * b.x - a.x * a.x;
+        let sqyac = a.y * a.y - c.y * c.y;
+        let sqyba = b.y * b.y - a.y * a.y;
+
+        let f = (sqxac * xab + sqyac * xab + sqxba * xac + sqyba * xac)
+            / (2.0 * (yab * xac - yac * xab));
+        let g = (sqxac * yab + sqyac * yab + sqxba * yac + sqyba * yac)
+            / (2.0 * (xab * yac - xac * yab));
+        let c = -a.x * a.x - a.y * a.y - 2.0 * g * a.x - 2.0 * f * a.y;
+        let r = (f * f + g * g - c).sqrt();
+
+        (Vector::new(-g, -f), r)
     }
 
     // Function to return a path of the Chain

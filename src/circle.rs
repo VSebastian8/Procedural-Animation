@@ -75,6 +75,11 @@ impl Circle {
             * (1.0 / (self.direction.x.powf(2.0) + self.direction.y.powf(2.0)).sqrt());
     }
 
+    // Function to get the point on the circle outline corresponding to a direction
+    pub fn point_on_circle(&self, dir: Vector) -> Vector {
+        self.position + dir * self.radius
+    }
+
     // Function returning a path of the circle
     pub fn path(&self, frame_center: Point) -> Path {
         Path::circle(frame_center + self.position, self.radius)

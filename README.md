@@ -25,3 +25,5 @@ Personal project for learning Rust, using the Iced GUI library
 > Each animation frame, we move through the automata until we reach a non-temporary state
 
 ## _Snake Outline_
+
+![snake outline](/assets/snake.gif "Snake Outline")

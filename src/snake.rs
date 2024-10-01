@@ -68,9 +68,29 @@ impl FsmAction {
     }
 }
 
+#[allow(dead_code)]
 impl Snake {
     pub fn new() -> Self {
-        let mut chain = Chain::new()
+        let mut chain = Self::slick_chain();
+        chain.update_positions(0);
+        let destination = chain.circles[0].position;
+        Snake {
+            chain,
+            destination,
+            vision_angle: PI / 6.0,
+            speed: 3.0,
+            min_speed: 3.0,
+            max_speed: 12.0,
+            color: Color::from_rgb8(168, 58, 50),
+            action: FsmAction::Reach,
+            tail_size: FsmTailSize::Normal(30),
+            tail_shake: FsmTailShake::Left(5),
+            turn_angle: PI / 100.0,
+        }
+    }
+
+    fn chunky_chain() -> Chain {
+        Chain::new()
             .circles_radii(vec![30.0, 48.0, 70.0, 60.5, 40.0, 30.5, 20.0, 20.0, 25.5])
             .circles_offsets(vec![0.0, 0.0, 13.0, -20.2, -10.0, -10.0, 15.0, 30.0, 0.0])
             .circles_positions(|i: usize, r: f32| {
@@ -81,22 +101,58 @@ impl Snake {
                     Some(rng.gen_range(-300.0..300.0)),
                 )
             })
-            .build();
-        chain.update_positions(0);
-        let destination = chain.circles[0].position;
-        Snake {
-            chain,
-            destination,
-            vision_angle: PI / 6.0,
-            speed: 3.0,
-            min_speed: 3.0,
-            max_speed: 7.0,
-            color: Color::from_rgb8(168, 58, 50),
-            action: FsmAction::Reach,
-            tail_size: FsmTailSize::Normal(30),
-            tail_shake: FsmTailShake::Left(5),
-            turn_angle: PI / 100.0,
-        }
+            .default_outline()
+            .build()
+    }
+
+    fn slick_chain() -> Chain {
+        Chain::new()
+            .circles_radii(
+                vec![30.0, 35.0, 28.0]
+                    .into_iter()
+                    .chain(
+                        vec![0.0; 50]
+                            .into_iter()
+                            .enumerate()
+                            .map(|(i, _)| 28.0 - 0.5 * i as f32),
+                    )
+                    .collect(),
+            )
+            .circles_offsets(
+                vec![0.0, 0.0, 10.0]
+                    .into_iter()
+                    .chain(vec![0.0; 10])
+                    .chain(vec![10.0; 40])
+                    .collect(),
+            )
+            .circles_positions(|i: usize, r: f32| {
+                use rand::Rng;
+                let mut rng = rand::thread_rng();
+                (
+                    Some(i as f32 * r * 10.0 + 800.0),
+                    Some(rng.gen_range(-300.0..300.0)),
+                )
+            })
+            .default_outline()
+            .refine_outline(
+                vec![
+                    vec![
+                        PI * 0.15,
+                        PI * 0.2,
+                        PI * 0.5,
+                        -PI * 0.5,
+                        -PI * 0.2,
+                        -PI * 0.15,
+                    ],
+                    vec![PI * 0.5, PI * 0.6, -PI * 0.6, -PI * 0.5],
+                    vec![PI * 0.45, PI * 0.5, -PI * 0.5, -PI * 0.45],
+                ]
+                .into_iter()
+                .chain(vec![vec![]; 49])
+                .chain(vec![vec![PI * 0.5, PI * 0.8, PI, -PI * 0.8, -PI * 0.5]])
+                .collect(),
+            )
+            .build()
     }
 
     // Function to transition between FSM actions
@@ -116,11 +172,15 @@ impl Snake {
             }
             FsmAction::Spiral => {
                 // Number of vertexes for spiral regular polygon
-                let radius = self.max_speed / (2.0 * self.turn_angle.sin()) + 40.0;
+                let radius = self.max_speed / (2.0 * self.turn_angle.sin()) + 50.0;
                 let center_left = self.chain.circles[0].position
-                    + Chain::rotate_vector(self.chain.circles[0].direction, -PI / 2.0) * radius;
+                    + Chain::rotate_vector(self.chain.circles[0].direction, -PI / 2.0)
+                        * radius
+                        * 0.8;
                 let center_right = self.chain.circles[0].position
-                    + Chain::rotate_vector(self.chain.circles[0].direction, PI / 2.0) * radius;
+                    + Chain::rotate_vector(self.chain.circles[0].direction, PI / 2.0)
+                        * radius
+                        * 0.8;
 
                 if Chain::vector_length(self.destination - center_left) < radius
                     || Chain::vector_length(self.destination - center_right) < radius
@@ -174,7 +234,7 @@ impl Snake {
             FsmAction::GoStraight => FsmAction::Reach,
             FsmAction::Reach => {
                 if Chain::vector_length(self.chain.circles[0].position - self.destination)
-                    < self.chain.circles[0].radius
+                    < self.chain.circles[0].radius + 5.0
                 {
                     FsmAction::Target
                 } else {
@@ -197,7 +257,7 @@ impl Snake {
             FsmAction::GoStraight => {
                 // Head straight for the point once the target is in the field of vision
                 self.chain.circles[0].set_target(self.destination);
-                self.modify_speed(0.05);
+                self.modify_speed(0.1);
             }
             FsmAction::TurnLeft => {
                 self.chain.circles[0].direction =
@@ -210,7 +270,7 @@ impl Snake {
                 self.modify_speed(-0.05);
             }
             FsmAction::Forward(_) => {
-                self.modify_speed(0.05);
+                self.modify_speed(0.1);
             }
             _ => {}
         }
@@ -301,13 +361,13 @@ impl Snake {
                 self.chain.circles[size].position = self.chain.circles[size].position
                     + Chain::rotate_vector(self.chain.circles[size].direction, PI / 2.0)
                         * self.chain.circles[size].radius
-                        * 0.04;
+                        * 0.4;
             }
             FsmTailShake::Left(_) => {
                 self.chain.circles[size].position = self.chain.circles[size].position
                     + Chain::rotate_vector(self.chain.circles[size].direction, -PI / 2.0)
                         * self.chain.circles[size].radius
-                        * 0.04;
+                        * 0.4;
             }
         }
     }
@@ -325,11 +385,13 @@ impl Snake {
         self.chain.circles[0].normalize_direction();
         self.chain.circles[0].position =
             self.chain.circles[0].position + self.chain.circles[0].direction * self.speed;
-
+        /*
         self.tail_size_transition();
         self.tail_size_move();
+
         self.tail_shake_transition();
         self.tail_shake_move();
+        */
 
         self.chain.update_positions(0);
     }
@@ -338,24 +400,43 @@ impl Snake {
         // Draw the target
         frame.fill(
             &Path::circle(frame.center() + self.destination, 5.0),
-            self.color,
+            Color::from_rgb8(252, 50, 145),
         );
 
-        // Draw the chain outline
-        frame.stroke(
-            &self.chain.path(frame.center()),
-            Stroke {
-                style: Color::WHITE.into(),
-                width: 4.0,
-                ..Default::default()
-            },
-        );
-        // Color the chain
-        frame.fill(&self.chain.path(frame.center()), self.color);
+        // self.draw_circles(frame);
+        self.draw_outline(frame);
 
         frame.fill(&self.eyes_path(frame.center()), Color::WHITE);
 
         // self.show_blind_spots(frame);
+    }
+
+    pub fn draw_circles(&self, frame: &mut Frame) {
+        frame.fill(&self.chain.circle_path(frame.center()), self.color);
+        // Snake stroke
+        frame.stroke(
+            &self.chain.circle_path(frame.center()),
+            Stroke {
+                style: Color::WHITE.into(),
+                width: 1.0,
+                ..Default::default()
+            },
+        );
+        // Snake color
+    }
+
+    pub fn draw_outline(&self, frame: &mut Frame) {
+        // Snake stroke
+        frame.stroke(
+            &self.chain.outline_path(frame.center()),
+            Stroke {
+                style: Color::from_rgba8(255, 255, 255, 1.0).into(),
+                width: 4.0,
+                ..Default::default()
+            },
+        );
+        // Snake color
+        frame.fill(&self.chain.outline_path(frame.center()), self.color);
     }
 
     // Function for drawing the snake's eyes
@@ -363,31 +444,30 @@ impl Snake {
         Path::new(|builder| {
             builder.circle(
                 frame_center
-                    + self.chain.circles[0].position
-                    + Chain::rotate_vector(self.chain.circles[0].direction, -PI / 4.0)
-                        * self.chain.circles[0].radius
-                        * 0.75,
-                5.0,
+                    + self.chain.circles[1].position
+                    + Chain::rotate_vector(self.chain.circles[1].direction, -PI * 0.2)
+                        * self.chain.circles[1].radius
+                        * 0.9,
+                6.0,
             );
             builder.circle(
                 frame_center
-                    + self.chain.circles[0].position
-                    + Chain::rotate_vector(self.chain.circles[0].direction, PI / 4.0)
-                        * self.chain.circles[0].radius
-                        * 0.75,
-                5.0,
+                    + self.chain.circles[1].position
+                    + Chain::rotate_vector(self.chain.circles[1].direction, PI * 0.2)
+                        * self.chain.circles[1].radius
+                        * 0.9,
+                6.0,
             );
             builder.close();
         })
     }
 
-    #[allow(dead_code)]
     pub fn show_blind_spots(&self, frame: &mut Frame) {
-        let radius = self.max_speed / (2.0 * self.turn_angle.sin()) + 40.0;
+        let radius = self.max_speed / (2.0 * self.turn_angle.sin()) + 50.0;
         let center_left = self.chain.circles[0].position
-            + Chain::rotate_vector(self.chain.circles[0].direction, -PI / 2.0) * radius;
+            + Chain::rotate_vector(self.chain.circles[0].direction, -PI / 2.0) * radius * 0.8;
         let center_right = self.chain.circles[0].position
-            + Chain::rotate_vector(self.chain.circles[0].direction, PI / 2.0) * radius;
+            + Chain::rotate_vector(self.chain.circles[0].direction, PI / 2.0) * radius * 0.8;
         frame.fill(
             &Path::circle(frame.center() + center_left, radius),
             Color::from_rgba8(255, 255, 255, 0.2),

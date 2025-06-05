@@ -1,16 +1,13 @@
-use iced::{
-    Application, // Also import implemented Traits
-    Result,
-    Settings,
-};
-mod app;
+use iced::Result;
 mod chain;
 mod circle;
 mod point_provider;
 mod screen;
 mod snake;
-use crate::app::*;
+use crate::screen::*;
 
 fn main() -> Result {
-    MyApp::run(Settings::default())
+    iced::application("Procedural Animation", update, view)
+        .subscription(subscription)
+        .run()
 }

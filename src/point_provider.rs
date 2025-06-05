@@ -26,6 +26,11 @@ impl PointProvider {
         }
     }
 
+    pub fn resize(&mut self, width: f32, height: f32) {
+        self.width = width;
+        self.height = height;
+    }
+
     // Get the next destination
     pub fn next(&mut self, position: Vector) -> Vector {
         let mut rng = rand::thread_rng();

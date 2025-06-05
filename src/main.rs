@@ -6,6 +6,7 @@ use iced::{
 mod app;
 mod chain;
 mod circle;
+mod point_provider;
 mod screen;
 mod snake;
 use crate::app::*;

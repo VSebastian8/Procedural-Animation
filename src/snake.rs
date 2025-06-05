@@ -1,4 +1,5 @@
 use crate::chain::*;
+use crate::point_provider::*;
 use iced::{
     widget::canvas::{Frame, Path, Stroke},
     Color, Point, Vector,
@@ -17,6 +18,7 @@ pub struct Snake {
     tail_size: FsmTailSize,
     tail_shake: FsmTailShake,
     turn_angle: f32,
+    pub point_provider: PointProvider,
 }
 
 // Enum for the actions of the move automaton
@@ -70,7 +72,7 @@ impl FsmAction {
 
 #[allow(dead_code)]
 impl Snake {
-    pub fn new() -> Self {
+    pub fn new(point_provider: PointProvider) -> Self {
         let mut chain = Self::slick_chain();
         chain.update_positions(0);
         let destination = chain.circles[0].position;
@@ -86,6 +88,7 @@ impl Snake {
             tail_size: FsmTailSize::Normal(30),
             tail_shake: FsmTailShake::Left(5),
             turn_angle: PI / 100.0,
+            point_provider,
         }
     }
 
@@ -158,7 +161,10 @@ impl Snake {
     // Function to transition between FSM actions
     pub fn transition(&mut self) {
         self.action = match self.action {
-            FsmAction::Target => FsmAction::Look,
+            FsmAction::Target => {
+                self.destination = self.point_provider.next(self.chain.circles[0].position);
+                FsmAction::Look
+            }
             FsmAction::Look => {
                 if Chain::angle_2_vectors(
                     self.chain.circles[0].direction,
@@ -276,20 +282,6 @@ impl Snake {
         }
     }
 
-    // Function to perform an extra action depending on the FSM action
-    pub fn extra_action(&mut self) {
-        match self.action {
-            FsmAction::Target => {
-                // Set the snake's destination to a random point
-                use rand::Rng;
-                let mut rng = rand::thread_rng();
-                self.destination =
-                    Vector::new(rng.gen_range(-400.0..400.0), rng.gen_range(-300.0..300.0));
-            }
-            _ => {}
-        }
-    }
-
     // FSM Transition function for tail size enum
     pub fn tail_size_transition(&mut self) {
         self.tail_size = match self.tail_size {
@@ -375,7 +367,6 @@ impl Snake {
     pub fn update(&mut self) {
         loop {
             self.transition();
-            self.extra_action();
             self.move_action();
             if !self.action.is_temporary() {
                 break;

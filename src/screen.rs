@@ -1,3 +1,4 @@
+use crate::point_provider::*;
 use crate::snake::*;
 
 use iced::{
@@ -15,7 +16,7 @@ impl Screen {
     pub fn new() -> Self {
         Self {
             cache: Cache::new(),
-            snake: Snake::new(),
+            snake: Snake::new(PointProvider::new(ProviderStrategy::Random, 800.0, 600.0)),
         }
     }
 

@@ -5,7 +5,9 @@ use iced::{
     widget::canvas::{Frame, Path, Stroke},
     Color, Point,
 };
+use std::cell::RefCell;
 use std::f32::consts::PI;
+use std::rc::Rc;
 
 pub struct Snake {
     pub chain: Chain,
@@ -19,7 +21,7 @@ pub struct Snake {
     tail_size: FsmTailSize,
     tail_shake: FsmTailShake,
     turn_angle: f32,
-    pub point_provider: PointProvider,
+    point_provider: Rc<RefCell<PointProvider>>,
 }
 
 // Enum for the actions of the move automaton
@@ -73,7 +75,7 @@ impl FsmAction {
 
 #[allow(dead_code)]
 impl Snake {
-    pub fn new(point_provider: PointProvider) -> Self {
+    pub fn new(point_provider: Rc<RefCell<PointProvider>>) -> Self {
         let mut chain = Self::slick_chain();
         chain.update_positions(0);
         let destination = chain.circles[0].position;
@@ -163,7 +165,10 @@ impl Snake {
     pub fn transition(&mut self) {
         self.action = match self.action {
             FsmAction::Target => {
-                self.destination = self.point_provider.next(self.chain.circles[0].position);
+                self.destination = self
+                    .point_provider
+                    .borrow_mut()
+                    .next(self.chain.circles[0].position);
                 FsmAction::Look
             }
             FsmAction::Look => {

@@ -11,12 +11,15 @@ use iced::{
     Color, Point, Rectangle, Renderer, Theme,
 };
 use iced_runtime::window::resize_events;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 // State of the screen
 pub struct Screen {
     fps: u32,
     cache: Cache,
     snake: Snake,
+    point_provider: Rc<RefCell<PointProvider>>,
 }
 
 // Event messages
@@ -29,14 +32,16 @@ pub enum ScreenMessage {
 
 impl Default for Screen {
     fn default() -> Self {
+        let pp = Rc::new(RefCell::new(PointProvider::new(
+            ProviderStrategy::OtherHalf,
+            800.0,
+            600.0,
+        )));
         Self {
             fps: 30,
             cache: Cache::new(),
-            snake: Snake::new(PointProvider::new(
-                ProviderStrategy::OtherHalf,
-                800.0,
-                600.0,
-            )),
+            snake: Snake::new(Rc::clone(&pp)),
+            point_provider: pp,
         }
     }
 }
@@ -49,10 +54,10 @@ pub fn update(screen: &mut Screen, message: ScreenMessage) {
             screen.cache.clear();
         }
         ScreenMessage::Resized(width, height) => {
-            screen.snake.point_provider.resize(width, height);
+            screen.point_provider.borrow_mut().resize(width, height);
         }
         ScreenMessage::AddPoint(p) => {
-            screen.snake.point_provider.add(p);
+            screen.point_provider.borrow_mut().add(p);
         }
     }
 }
@@ -91,7 +96,7 @@ impl Program<ScreenMessage> for Screen {
             // Draw the background
             frame.fill_rectangle(Point::ORIGIN, bounds.size(), Color::from_rgb8(39, 45, 52));
             // Draw the queued points
-            self.snake.point_provider.draw(frame);
+            self.point_provider.borrow().draw(frame);
             // Draw the animal
             self.snake.draw(frame);
         });

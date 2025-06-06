@@ -150,7 +150,7 @@ impl Chain {
     }
 
     // Determine wether c is Left, Right or Colinear with the vector from a to b
-    pub fn orientation_test(a: Vector, b: Vector, c: Vector) -> Orientation {
+    pub fn orientation_test(a: Point, b: Point, c: Point) -> Orientation {
         let det = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
         if det == 0.0 {
             Orientation::CENTER
@@ -168,7 +168,7 @@ impl Chain {
 
     #[allow(dead_code)]
     // Function that calculates the circle passing through 3 points, returns circle center and radius
-    pub fn circle_from_three_points(a: Vector, b: Vector, c: Vector) -> (Vector, f32) {
+    pub fn circle_from_three_points(a: Point, b: Point, c: Point) -> (Point, f32) {
         let xab = a.x - b.x;
         let xac = a.x - c.x;
         let yab = a.y - b.y;
@@ -187,7 +187,7 @@ impl Chain {
         let c = -a.x * a.x - a.y * a.y - 2.0 * g * a.x - 2.0 * f * a.y;
         let r = (f * f + g * g - c).sqrt();
 
-        (Vector::new(-g, -f), r)
+        (Point::new(-g, -f), r)
     }
 
     // Function to return a path of the Chain
@@ -196,7 +196,7 @@ impl Chain {
             for i in 0..self.circles.len() {
                 // builder.circle(&circle.path(frame.center()),
                 builder.circle(
-                    frame_center + self.circles[i].position,
+                    self.circles[i].position + point_to_vector(frame_center),
                     self.circles[i].radius,
                 );
             }
@@ -210,32 +210,27 @@ impl Chain {
             let n = self.circles.len();
             // Start the path at the last point of the right half of the first line
             builder.move_to(
-                frame_center
-                    + self.circles[0].point_on_circle(Self::rotate_vector(
-                        self.circles[0].direction,
-                        *self.outlines[n].last().unwrap_or(&0.0),
-                    )),
+                self.circles[0].point_on_circle(Self::rotate_vector(
+                    self.circles[0].direction,
+                    *self.outlines[n].last().unwrap_or(&0.0),
+                )) + point_to_vector(frame_center),
             );
 
             for i in 0..n {
                 for ang in self.outlines[i].iter() {
                     builder.line_to(
-                        frame_center
-                            + self.circles[i].point_on_circle(Self::rotate_vector(
-                                self.circles[i].direction,
-                                *ang,
-                            )),
+                        self.circles[i]
+                            .point_on_circle(Self::rotate_vector(self.circles[i].direction, *ang))
+                            + point_to_vector(frame_center),
                     );
                 }
             }
             for i in (0..n).rev() {
                 for ang in self.outlines[i + n].iter() {
                     builder.line_to(
-                        frame_center
-                            + self.circles[i].point_on_circle(Self::rotate_vector(
-                                self.circles[i].direction,
-                                *ang,
-                            )),
+                        self.circles[i]
+                            .point_on_circle(Self::rotate_vector(self.circles[i].direction, *ang))
+                            + point_to_vector(frame_center),
                     );
                 }
             }

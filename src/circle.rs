@@ -2,7 +2,7 @@ use iced::{widget::canvas::Path, Point, Vector};
 pub struct Circle {
     pub radius: f32,
     pub offset: f32,
-    pub position: Vector,
+    pub position: Point,
     pub direction: Vector,
     pub show_center: bool,
 }
@@ -12,7 +12,7 @@ impl Default for Circle {
         Self {
             radius: 25.0,
             offset: 0.0,
-            position: Vector::new(0.0, 0.0),
+            position: Point::new(0.0, 0.0),
             direction: Vector::new(-1.0, 0.0),
             show_center: false,
         }
@@ -29,6 +29,10 @@ impl Clone for Circle {
             show_center: self.show_center,
         }
     }
+}
+
+pub fn point_to_vector(point: Point) -> Vector {
+    Vector::new(point.x, point.y)
 }
 
 #[allow(dead_code)]
@@ -60,12 +64,12 @@ impl Circle {
     }
 
     // Set the position of the circle at {distance} from {target}
-    pub fn bound_to_target(&mut self, target: Vector, distance: f32) {
+    pub fn bound_to_target(&mut self, target: Point, distance: f32) {
         self.position = target + self.direction * (distance + self.offset) * (-1.0);
     }
 
     // Point the direction vector towards a new target
-    pub fn set_target(&mut self, target: Vector) {
+    pub fn set_target(&mut self, target: Point) {
         self.direction = target - self.position;
     }
 
@@ -76,17 +80,20 @@ impl Circle {
     }
 
     // Function to get the point on the circle outline corresponding to a direction
-    pub fn point_on_circle(&self, dir: Vector) -> Vector {
+    pub fn point_on_circle(&self, dir: Vector) -> Point {
         self.position + dir * self.radius
     }
 
     // Function returning a path of the circle
     pub fn path(&self, frame_center: Point) -> Path {
-        Path::circle(frame_center + self.position, self.radius)
+        Path::circle(self.position + point_to_vector(frame_center), self.radius)
     }
 
     // Function used for displaying the center marker
     pub fn center_path(&self, frame_center: Point) -> Path {
-        Path::circle(frame_center + self.position, self.radius / 10.0)
+        Path::circle(
+            self.position + point_to_vector(frame_center),
+            self.radius / 10.0,
+        )
     }
 }

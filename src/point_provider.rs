@@ -1,16 +1,21 @@
 use rand::Rng;
 use std::collections::VecDeque;
 
-use iced::Vector;
+use crate::circle::point_to_vector;
+use iced::{
+    widget::canvas::{Frame, Path},
+    Color, Point,
+};
 
 #[allow(dead_code)]
 pub enum ProviderStrategy {
     Random,
     OtherHalf,
+    MouseClick,
 }
 
 pub struct PointProvider {
-    points: VecDeque<Vector>,
+    points: VecDeque<Point>,
     strategy: ProviderStrategy,
     width: f32,
     height: f32,
@@ -31,24 +36,28 @@ impl PointProvider {
         self.height = height;
     }
 
+    pub fn add(&mut self, point: Point) {
+        self.points.push_back(point);
+    }
+
     // Get the next destination
-    pub fn next(&mut self, position: Vector) -> Vector {
+    pub fn next(&mut self, position: Point) -> Point {
         let mut rng = rand::thread_rng();
         match self.points.pop_front() {
             Some(point) => point,
             None => match self.strategy {
-                ProviderStrategy::Random => Vector::new(
+                ProviderStrategy::Random | ProviderStrategy::MouseClick => Point::new(
                     rng.gen_range((-self.width / 2.0)..(self.width / 2.0)),
                     rng.gen_range((-self.height / 2.0)..(self.height / 2.0)),
                 ),
                 ProviderStrategy::OtherHalf => {
                     if position.x < 0.0 {
-                        Vector::new(
+                        Point::new(
                             rng.gen_range(0.0..(self.width / 2.0)),
                             rng.gen_range((-self.height / 2.0)..(self.height / 2.0)),
                         )
                     } else {
-                        Vector::new(
+                        Point::new(
                             rng.gen_range((-self.width / 2.0)..0.0),
                             rng.gen_range((-self.height / 2.0)..(self.height / 2.0)),
                         )
@@ -56,5 +65,15 @@ impl PointProvider {
                 }
             },
         }
+    }
+
+    pub fn draw(&self, frame: &mut Frame) {
+        // Draw the points in the queue
+        self.points.iter().zip(1..).for_each(|(point, index)| {
+            frame.fill(
+                &Path::circle(*point + point_to_vector(frame.center()), 5.0),
+                Color::from_rgba8(195, 192, 255, f32::max(0.2, 1.0 - 0.1 * index as f32)),
+            )
+        });
     }
 }

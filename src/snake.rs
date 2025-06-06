@@ -1,14 +1,15 @@
 use crate::chain::*;
+use crate::circle::point_to_vector;
 use crate::point_provider::*;
 use iced::{
     widget::canvas::{Frame, Path, Stroke},
-    Color, Point, Vector,
+    Color, Point,
 };
 use std::f32::consts::PI;
 
 pub struct Snake {
     pub chain: Chain,
-    pub destination: Vector,
+    pub destination: Point,
     pub vision_angle: f32,
     pub speed: f32,
     min_speed: f32,
@@ -390,7 +391,7 @@ impl Snake {
     pub fn draw(&self, frame: &mut Frame) {
         // Draw the target
         frame.fill(
-            &Path::circle(frame.center() + self.destination, 5.0),
+            &Path::circle(self.destination + point_to_vector(frame.center()), 5.0),
             Color::from_rgb8(252, 50, 145),
         );
 
@@ -434,16 +435,16 @@ impl Snake {
     pub fn eyes_path(&self, frame_center: Point) -> Path {
         Path::new(|builder| {
             builder.circle(
-                frame_center
-                    + self.chain.circles[1].position
+                self.chain.circles[1].position
+                    + point_to_vector(frame_center)
                     + Chain::rotate_vector(self.chain.circles[1].direction, -PI * 0.2)
                         * self.chain.circles[1].radius
                         * 0.9,
                 6.0,
             );
             builder.circle(
-                frame_center
-                    + self.chain.circles[1].position
+                self.chain.circles[1].position
+                    + point_to_vector(frame_center)
                     + Chain::rotate_vector(self.chain.circles[1].direction, PI * 0.2)
                         * self.chain.circles[1].radius
                         * 0.9,
@@ -460,11 +461,11 @@ impl Snake {
         let center_right = self.chain.circles[0].position
             + Chain::rotate_vector(self.chain.circles[0].direction, PI / 2.0) * radius * 0.8;
         frame.fill(
-            &Path::circle(frame.center() + center_left, radius),
+            &Path::circle(center_left + point_to_vector(frame.center()), radius),
             Color::from_rgba8(255, 255, 255, 0.2),
         );
         frame.fill(
-            &Path::circle(frame.center() + center_right, radius),
+            &Path::circle(center_right + point_to_vector(frame.center()), radius),
             Color::from_rgba8(255, 255, 255, 0.2),
         );
     }

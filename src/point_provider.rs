@@ -15,6 +15,7 @@ pub enum ProviderStrategy {
 }
 
 pub struct PointProvider {
+    pub current_point: Point,
     points: VecDeque<Point>,
     strategy: ProviderStrategy,
     width: f32,
@@ -24,6 +25,7 @@ pub struct PointProvider {
 impl PointProvider {
     pub fn new(strategy: ProviderStrategy, width: f32, height: f32) -> Self {
         PointProvider {
+            current_point: Point { x: 0.0, y: 0.0 },
             points: VecDeque::new(),
             strategy,
             width,
@@ -48,12 +50,15 @@ impl PointProvider {
             .filter(|p| point_distance(point, **p) > radius)
             .map(|p| *p)
             .collect();
+        if point_distance(point, self.current_point) <= radius {
+            self.next(self.current_point);
+        }
     }
 
     // Get the next destination
-    pub fn next(&mut self, position: Point) -> Point {
+    pub fn next(&mut self, position: Point) {
         let mut rng = rand::thread_rng();
-        match self.points.pop_front() {
+        self.current_point = match self.points.pop_front() {
             Some(point) => point,
             None => match self.strategy {
                 ProviderStrategy::Random | ProviderStrategy::MouseClick => Point::new(
@@ -78,6 +83,12 @@ impl PointProvider {
     }
 
     pub fn draw(&self, frame: &mut Frame) {
+        // Draw the current point
+        frame.fill(
+            &Path::circle(self.current_point + point_to_vector(frame.center()), 5.0),
+            Color::from_rgb8(252, 50, 145),
+        );
+
         // Draw the points in the queue
         self.points.iter().zip(1..).for_each(|(point, index)| {
             frame.fill(

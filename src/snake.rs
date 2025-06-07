@@ -10,6 +10,7 @@ use std::f32::consts::PI;
 use std::rc::Rc;
 
 pub struct Snake {
+    pub idle: bool,
     pub chain: Chain,
     pub destination: Point,
     pub vision_angle: f32,
@@ -25,7 +26,7 @@ pub struct Snake {
 }
 
 // Enum for the actions of the move automaton
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum FsmAction {
     GoStraight,
     Forward(u32),
@@ -80,6 +81,7 @@ impl Snake {
         chain.update_positions(0);
         let destination = chain.circles[0].position;
         Snake {
+            idle: true,
             chain,
             destination,
             vision_angle: PI / 6.0,
@@ -161,14 +163,22 @@ impl Snake {
             .build()
     }
 
+    pub fn update_destination(&mut self) {
+        let last_destination = self.destination;
+        self.destination = self.point_provider.borrow().current_point;
+        if last_destination != self.destination {
+            self.action = FsmAction::Look;
+        }
+    }
+
     // Function to transition between FSM actions
     pub fn transition(&mut self) {
         self.action = match self.action {
             FsmAction::Target => {
-                self.destination = self
-                    .point_provider
+                self.point_provider
                     .borrow_mut()
                     .next(self.chain.circles[0].position);
+                self.update_destination();
                 FsmAction::Look
             }
             FsmAction::Look => {
@@ -366,36 +376,68 @@ impl Snake {
         }
     }
 
+    // Set the snake to idle/controlled
+    pub fn switch_idle(&mut self) {
+        if self.idle {
+            self.idle = false;
+            self.action = FsmAction::Forward(0);
+        } else {
+            self.idle = true;
+            self.action = FsmAction::Look;
+        }
+    }
+
+    pub fn start_left(&mut self) {
+        if !self.idle {
+            self.action = FsmAction::TurnLeft;
+        }
+    }
+
+    pub fn start_right(&mut self) {
+        if !self.idle {
+            self.action = FsmAction::TurnRight;
+        }
+    }
+
+    pub fn stop_left(&mut self) {
+        if !self.idle && self.action == FsmAction::TurnLeft {
+            self.action = FsmAction::Forward(0);
+        }
+    }
+
+    pub fn stop_right(&mut self) {
+        if !self.idle && self.action == FsmAction::TurnRight {
+            self.action = FsmAction::Forward(0);
+        }
+    }
+
     pub fn update(&mut self) {
-        loop {
-            self.transition();
-            self.move_action();
-            if !self.action.is_temporary() {
-                break;
+        if self.idle {
+            loop {
+                self.transition();
+                self.move_action();
+                if !self.action.is_temporary() {
+                    break;
+                }
             }
+            /*
+            self.tail_size_transition();
+            self.tail_size_move();
+
+            self.tail_shake_transition();
+            self.tail_shake_move();
+            */
+        } else {
+            self.move_action();
         }
         // Move the chain in the direction it's pointing
         self.chain.circles[0].normalize_direction();
         self.chain.circles[0].position =
             self.chain.circles[0].position + self.chain.circles[0].direction * self.speed;
-        /*
-        self.tail_size_transition();
-        self.tail_size_move();
-
-        self.tail_shake_transition();
-        self.tail_shake_move();
-        */
-
         self.chain.update_positions(0);
     }
 
     pub fn draw(&self, frame: &mut Frame) {
-        // Draw the target
-        frame.fill(
-            &Path::circle(self.destination + point_to_vector(frame.center()), 5.0),
-            Color::from_rgb8(252, 50, 145),
-        );
-
         // self.draw_circles(frame);
         self.draw_outline(frame);
 
@@ -405,6 +447,7 @@ impl Snake {
     }
 
     pub fn draw_circles(&self, frame: &mut Frame) {
+        // Snake color
         frame.fill(&self.chain.circle_path(frame.center()), self.color);
         // Snake stroke
         frame.stroke(
@@ -415,7 +458,6 @@ impl Snake {
                 ..Default::default()
             },
         );
-        // Snake color
     }
 
     pub fn draw_outline(&self, frame: &mut Frame) {

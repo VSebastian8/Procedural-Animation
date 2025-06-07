@@ -1,5 +1,6 @@
 use crate::point_provider::*;
 use crate::snake::*;
+use iced::keyboard;
 use iced::mouse::Button;
 use iced::mouse::ScrollDelta;
 use iced::time::{self, Duration};
@@ -23,6 +24,16 @@ pub struct Screen {
     point_provider: Rc<RefCell<PointProvider>>,
 }
 
+// Handled keyboard presses
+#[derive(Debug)]
+pub enum Key {
+    Idle,
+    StartLeft,
+    StopLeft,
+    StartRight,
+    StopRight,
+}
+
 // Event messages
 #[derive(Debug)]
 pub enum ScreenMessage {
@@ -31,6 +42,7 @@ pub enum ScreenMessage {
     AddPoint(Point),
     RemovePoint(Point),
     ModifySpeed(f32),
+    KeyInteraction(Key),
 }
 
 impl Default for Screen {
@@ -64,11 +76,19 @@ pub fn update(screen: &mut Screen, message: ScreenMessage) {
         }
         ScreenMessage::RemovePoint(p) => {
             screen.point_provider.borrow_mut().remove(p);
+            screen.snake.update_destination();
         }
         ScreenMessage::ModifySpeed(acc) => {
             screen.snake.modify_speed(acc);
             println!("{}", screen.snake.speed);
         }
+        ScreenMessage::KeyInteraction(key) => match key {
+            Key::Idle => screen.snake.switch_idle(),
+            Key::StartLeft => screen.snake.start_left(),
+            Key::StartRight => screen.snake.start_right(),
+            Key::StopLeft => screen.snake.stop_left(),
+            Key::StopRight => screen.snake.stop_right(),
+        },
     }
 }
 
@@ -106,7 +126,9 @@ impl Program<ScreenMessage> for Screen {
             // Draw the background
             frame.fill_rectangle(Point::ORIGIN, bounds.size(), Color::from_rgb8(39, 45, 52));
             // Draw the queued points
-            self.point_provider.borrow().draw(frame);
+            if self.snake.idle {
+                self.point_provider.borrow().draw(frame);
+            }
             // Draw the animal
             self.snake.draw(frame);
         });
@@ -158,6 +180,38 @@ impl Program<ScreenMessage> for Screen {
                     Some(ScreenMessage::ModifySpeed(if up { 0.1 } else { -0.1 })),
                 )
             }
+            Event::Keyboard(keyboard::Event::KeyPressed { key, .. }) => match key {
+                keyboard::Key::Character(c) => match c.as_str() {
+                    "i" | "I" => (
+                        event::Status::Captured,
+                        Some(ScreenMessage::KeyInteraction(Key::Idle)),
+                    ),
+                    "a" | "A" => (
+                        event::Status::Captured,
+                        Some(ScreenMessage::KeyInteraction(Key::StartLeft)),
+                    ),
+                    "d" | "D" => (
+                        event::Status::Captured,
+                        Some(ScreenMessage::KeyInteraction(Key::StartRight)),
+                    ),
+                    _ => (event::Status::Ignored, None),
+                },
+                _ => (event::Status::Ignored, None),
+            },
+            Event::Keyboard(keyboard::Event::KeyReleased { key, .. }) => match key {
+                keyboard::Key::Character(c) => match c.as_str() {
+                    "a" | "A" => (
+                        event::Status::Captured,
+                        Some(ScreenMessage::KeyInteraction(Key::StopLeft)),
+                    ),
+                    "d" | "D" => (
+                        event::Status::Captured,
+                        Some(ScreenMessage::KeyInteraction(Key::StopRight)),
+                    ),
+                    _ => (event::Status::Ignored, None),
+                },
+                _ => (event::Status::Ignored, None),
+            },
             _ => (event::Status::Ignored, None),
         }
     }

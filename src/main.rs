@@ -4,6 +4,7 @@ mod circle;
 mod point_provider;
 mod screen;
 mod snake;
+mod util;
 use crate::screen::*;
 
 fn main() -> Result {

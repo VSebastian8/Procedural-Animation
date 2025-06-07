@@ -1,6 +1,6 @@
 use crate::chain::*;
-use crate::circle::point_to_vector;
 use crate::point_provider::*;
+use crate::util::*;
 use iced::{
     widget::canvas::{Frame, Path, Stroke},
     Color, Point,
@@ -85,7 +85,7 @@ impl Snake {
             vision_angle: PI / 6.0,
             speed: 3.0,
             min_speed: 3.0,
-            max_speed: 12.0,
+            max_speed: 25.0,
             color: Color::from_rgb8(168, 58, 50),
             action: FsmAction::Reach,
             tail_size: FsmTailSize::Normal(30),
@@ -172,7 +172,7 @@ impl Snake {
                 FsmAction::Look
             }
             FsmAction::Look => {
-                if Chain::angle_2_vectors(
+                if angle_2_vectors(
                     self.chain.circles[0].direction,
                     self.destination - self.chain.circles[0].position,
                 ) < self.vision_angle
@@ -186,16 +186,12 @@ impl Snake {
                 // Number of vertexes for spiral regular polygon
                 let radius = self.max_speed / (2.0 * self.turn_angle.sin()) + 50.0;
                 let center_left = self.chain.circles[0].position
-                    + Chain::rotate_vector(self.chain.circles[0].direction, -PI / 2.0)
-                        * radius
-                        * 0.8;
+                    + rotate_vector(self.chain.circles[0].direction, -PI / 2.0) * radius * 0.8;
                 let center_right = self.chain.circles[0].position
-                    + Chain::rotate_vector(self.chain.circles[0].direction, PI / 2.0)
-                        * radius
-                        * 0.8;
+                    + rotate_vector(self.chain.circles[0].direction, PI / 2.0) * radius * 0.8;
 
-                if Chain::vector_length(self.destination - center_left) < radius
-                    || Chain::vector_length(self.destination - center_right) < radius
+                if point_distance(self.destination, center_left) < radius
+                    || point_distance(self.destination, center_right) < radius
                 {
                     FsmAction::Forward(30)
                 } else {
@@ -210,7 +206,7 @@ impl Snake {
                 }
             }
             FsmAction::Orient => {
-                match Chain::orientation_test(
+                match orientation_test(
                     self.chain.circles[0].position,
                     self.chain.circles[0].position + self.chain.circles[0].direction * 100.0,
                     self.destination,
@@ -220,7 +216,7 @@ impl Snake {
                 }
             }
             FsmAction::LookLeft => {
-                if Chain::angle_2_vectors(
+                if angle_2_vectors(
                     self.chain.circles[0].direction,
                     self.destination - self.chain.circles[0].position,
                 ) > self.vision_angle / 4.0
@@ -231,7 +227,7 @@ impl Snake {
                 }
             }
             FsmAction::LookRight => {
-                if Chain::angle_2_vectors(
+                if angle_2_vectors(
                     self.chain.circles[0].direction,
                     self.destination - self.chain.circles[0].position,
                 ) > self.vision_angle / 4.0
@@ -245,7 +241,7 @@ impl Snake {
             FsmAction::TurnRight => FsmAction::LookRight,
             FsmAction::GoStraight => FsmAction::Reach,
             FsmAction::Reach => {
-                if Chain::vector_length(self.chain.circles[0].position - self.destination)
+                if point_distance(self.chain.circles[0].position, self.destination)
                     < self.chain.circles[0].radius + 5.0
                 {
                     FsmAction::Target
@@ -273,12 +269,12 @@ impl Snake {
             }
             FsmAction::TurnLeft => {
                 self.chain.circles[0].direction =
-                    Chain::rotate_vector(self.chain.circles[0].direction, -self.turn_angle);
+                    rotate_vector(self.chain.circles[0].direction, -self.turn_angle);
                 self.modify_speed(-0.05);
             }
             FsmAction::TurnRight => {
                 self.chain.circles[0].direction =
-                    Chain::rotate_vector(self.chain.circles[0].direction, self.turn_angle);
+                    rotate_vector(self.chain.circles[0].direction, self.turn_angle);
                 self.modify_speed(-0.05);
             }
             FsmAction::Forward(_) => {
@@ -357,13 +353,13 @@ impl Snake {
         match self.tail_shake {
             FsmTailShake::Right(_) => {
                 self.chain.circles[size].position = self.chain.circles[size].position
-                    + Chain::rotate_vector(self.chain.circles[size].direction, PI / 2.0)
+                    + rotate_vector(self.chain.circles[size].direction, PI / 2.0)
                         * self.chain.circles[size].radius
                         * 0.4;
             }
             FsmTailShake::Left(_) => {
                 self.chain.circles[size].position = self.chain.circles[size].position
-                    + Chain::rotate_vector(self.chain.circles[size].direction, -PI / 2.0)
+                    + rotate_vector(self.chain.circles[size].direction, -PI / 2.0)
                         * self.chain.circles[size].radius
                         * 0.4;
             }
@@ -442,7 +438,7 @@ impl Snake {
             builder.circle(
                 self.chain.circles[1].position
                     + point_to_vector(frame_center)
-                    + Chain::rotate_vector(self.chain.circles[1].direction, -PI * 0.2)
+                    + rotate_vector(self.chain.circles[1].direction, -PI * 0.2)
                         * self.chain.circles[1].radius
                         * 0.9,
                 6.0,
@@ -450,7 +446,7 @@ impl Snake {
             builder.circle(
                 self.chain.circles[1].position
                     + point_to_vector(frame_center)
-                    + Chain::rotate_vector(self.chain.circles[1].direction, PI * 0.2)
+                    + rotate_vector(self.chain.circles[1].direction, PI * 0.2)
                         * self.chain.circles[1].radius
                         * 0.9,
                 6.0,
@@ -462,9 +458,9 @@ impl Snake {
     pub fn show_blind_spots(&self, frame: &mut Frame) {
         let radius = self.max_speed / (2.0 * self.turn_angle.sin()) + 50.0;
         let center_left = self.chain.circles[0].position
-            + Chain::rotate_vector(self.chain.circles[0].direction, -PI / 2.0) * radius * 0.8;
+            + rotate_vector(self.chain.circles[0].direction, -PI / 2.0) * radius * 0.8;
         let center_right = self.chain.circles[0].position
-            + Chain::rotate_vector(self.chain.circles[0].direction, PI / 2.0) * radius * 0.8;
+            + rotate_vector(self.chain.circles[0].direction, PI / 2.0) * radius * 0.8;
         frame.fill(
             &Path::circle(center_left + point_to_vector(frame.center()), radius),
             Color::from_rgba8(255, 255, 255, 0.2),

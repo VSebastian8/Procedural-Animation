@@ -1,3 +1,4 @@
+use crate::util::*;
 use iced::{widget::canvas::Path, Point, Vector};
 pub struct Circle {
     pub radius: f32,
@@ -29,10 +30,6 @@ impl Clone for Circle {
             show_center: self.show_center,
         }
     }
-}
-
-pub fn point_to_vector(point: Point) -> Vector {
-    Vector::new(point.x, point.y)
 }
 
 #[allow(dead_code)]

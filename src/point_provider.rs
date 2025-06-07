@@ -1,7 +1,7 @@
 use rand::Rng;
 use std::collections::VecDeque;
 
-use crate::circle::point_to_vector;
+use crate::util::*;
 use iced::{
     widget::canvas::{Frame, Path},
     Color, Point,
@@ -38,6 +38,16 @@ impl PointProvider {
 
     pub fn add(&mut self, point: Point) {
         self.points.push_back(point);
+    }
+
+    pub fn remove(&mut self, point: Point) {
+        let radius: f32 = 10.0;
+        self.points = self
+            .points
+            .iter()
+            .filter(|p| point_distance(point, **p) > radius)
+            .map(|p| *p)
+            .collect();
     }
 
     // Get the next destination

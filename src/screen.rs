@@ -1,6 +1,7 @@
 use crate::point_provider::*;
 use crate::snake::*;
 use iced::mouse::Button;
+use iced::mouse::ScrollDelta;
 use iced::time::{self, Duration};
 use iced::widget::canvas::event::{self, Event};
 use iced::widget::Canvas;
@@ -28,6 +29,8 @@ pub enum ScreenMessage {
     Update,
     Resized(f32, f32),
     AddPoint(Point),
+    RemovePoint(Point),
+    ModifySpeed(f32),
 }
 
 impl Default for Screen {
@@ -58,6 +61,13 @@ pub fn update(screen: &mut Screen, message: ScreenMessage) {
         }
         ScreenMessage::AddPoint(p) => {
             screen.point_provider.borrow_mut().add(p);
+        }
+        ScreenMessage::RemovePoint(p) => {
+            screen.point_provider.borrow_mut().remove(p);
+        }
+        ScreenMessage::ModifySpeed(acc) => {
+            screen.snake.modify_speed(acc);
+            println!("{}", screen.snake.speed);
         }
     }
 }
@@ -125,6 +135,29 @@ impl Program<ScreenMessage> for Screen {
                 }
                 mouse::Cursor::Unavailable => (event::Status::Ignored, None),
             },
+            Event::Mouse(mouse::Event::ButtonPressed(Button::Right)) => match cursor {
+                mouse::Cursor::Available(p) => {
+                    let s = bounds.size();
+                    (
+                        event::Status::Captured,
+                        Some(ScreenMessage::RemovePoint(Point {
+                            x: p.x - s.width / 2.0,
+                            y: p.y - s.height / 2.0,
+                        })),
+                    )
+                }
+                mouse::Cursor::Unavailable => (event::Status::Ignored, None),
+            },
+            Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
+                let up = match delta {
+                    ScrollDelta::Pixels { x: _, y } => y > 0.0,
+                    ScrollDelta::Lines { x: _, y } => y > 0.0,
+                };
+                (
+                    event::Status::Captured,
+                    Some(ScreenMessage::ModifySpeed(if up { 0.1 } else { -0.1 })),
+                )
+            }
             _ => (event::Status::Ignored, None),
         }
     }
